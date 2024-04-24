@@ -1,3 +1,9 @@
 if (!requireNamespace("BiocManager", quietly = TRUE))
     install.packages("BiocManager")
 BiocManager::install("dada2", version = "3.11")
+
+
+
+install.packages("devtools")
+library("devtools")
+devtools::install_github("benjjneb/dada2", ref="v1.16") # change the ref argument to get other versions
