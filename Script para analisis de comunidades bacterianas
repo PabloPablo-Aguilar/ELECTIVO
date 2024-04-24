@@ -1,0 +1,46 @@
+library(dada2); packageVersion("dada2")
+path <- "C:/Users/pablo/OneDrive/DOCENCIA/2024-primer semestre/Electivo/Clase_3"
+list.files(path)
+fnFs <-sort(list.files(path, patter="_R1.fastq", full.names=TRUE))
+fnRs <- sort(list.files(path, pattern="_R2.fastq", full.names = TRUE))
+sample.names <- sapply(strsplit(basename(fnFs), "_"), `[`, 1)
+plotQualityProfile(fnFs[1:2])
+plotQualityProfile(fnRs[1:2])
+filt_path <- file.path(path, "filtered")
+filtFs <- file.path(filt_path, paste0(sample.names, "_F_filt.fastq.gz"))
+filtRs <- file.path(filt_path, paste0(sample.names, "_R_filt.fastq.gz"))
+out <- filterAndTrim(fnFs, filtFs, fnRs, filtRs, truncLen=c(240,180),
+                     maxN=0, maxEE=c(2,2), truncQ=2, rm.phix=TRUE,
+                     compress=TRUE, multithread=FALSE)
+errF <- learnErrors(filtFs, multithread=TRUE)
+errR <- learnErrors(filtRs, multithread=TRUE)
+plotErrors(errF, nominalQ=TRUE)
+derepFs <- derepFastq(filtFs, verbose=TRUE)
+derepRs <- derepFastq(filtRs, verbose=TRUE)
+names(derepFs) <- sample.names
+names(derepRs) <- sample.names
+dadaFs <- dada(derepFs, err=errF, multithread=TRUE)
+dadaRs <- dada(derepRs, err=errR, multithread=TRUE)
+dadaFs[[1]]
+mergers <- mergePairs(dadaFs, derepFs, dadaRs, derepRs, verbose=TRUE)
+head(mergers[[1]])
+seqtab <- makeSequenceTable(mergers)
+dim(seqtab)
+table(nchar(getSequences(seqtab)))
+seqtab.nochim <- removeBimeraDenovo(seqtab, method="consensus", multithread=TRUE, verbose=TRUE)
+dim(seqtab.nochim)
+sum(seqtab.nochim)/sum(seqtab)
+getN <- function(x) sum(getUniques(x))
+track <- cbind(out, sapply(dadaFs, getN), sapply(mergers, getN), rowSums(seqtab), rowSums(seqtab.nochim))
+colnames(track) <- c("input", "filtered", "denoised", "merged", "tabled", "nonchim")
+rownames(track) <- sample.names
+head(track)
+taxa <- assignTaxonomy(seqtab.nochim, "C:/Users/pablo/OneDrive/DOCENCIA/2024-primer semestre/Electivo/Clase_3/silva_nr_v132_train_set.fa.gz", multithread=TRUE)
+taxa <- addSpecies(taxa, "D:/Dropbox/Dropbox/paper_lakes_2/original_files/silva_species_assignment_v132.fa.gz")
+taxa.print <- taxa # Removing sequence rownames for display only
+rownames(taxa.print) <- NULL
+head(taxa.print)
+
+library(xlsx)
+write.xlsx(seqtab.nochim, "C:/Users/pablo/OneDrive/DOCENCIA/2024-primer semestre/Electivo/Clase_3/final.xlsx")
+write.xlsx(taxa, "C:/Users/pablo/OneDrive/DOCENCIA/2024-primer semestre/Electivo/Clase_3/taxonomy.xlsx")
